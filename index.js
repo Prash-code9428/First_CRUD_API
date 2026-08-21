@@ -1,10 +1,20 @@
 import express from 'express';
+import fs from 'fs';
+import swaggerUi from 'swagger-ui-express';
 
 const app = express();
 const PORT = 3000;
 
+// Load OpenAPI spec
+const openapiSpec = JSON.parse(
+  fs.readFileSync(new URL('./openapi.json', import.meta.url), 'utf8')
+);
+
 // Enable parsing of JSON request bodies
 app.use(express.json());
+
+// Serve Swagger UI
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));
 
 // In-memory array of exactly 3 example tasks
 const tasks = [
