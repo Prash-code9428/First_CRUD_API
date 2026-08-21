@@ -3,6 +3,13 @@ import express from 'express';
 const app = express();
 const PORT = 3000;
 
+// In-memory array of exactly 3 example tasks
+const tasks = [
+  { id: 1, title: 'Learn the basics of Express.js', done: true },
+  { id: 2, title: 'Build a simple CRUD API', done: false },
+  { id: 3, title: 'Deploy the backend to staging', done: false }
+];
+
 // Metadata endpoint
 app.get('/', (req, res) => {
   res.status(200).json({
@@ -17,6 +24,27 @@ app.get('/health', (req, res) => {
   res.status(200).json({
     status: "ok"
   });
+});
+
+// Get all tasks
+app.get('/tasks', (req, res) => {
+  res.status(200).json(tasks);
+});
+
+// Get a task by ID
+app.get('/tasks/:id', (req, res) => {
+  const idParam = req.params.id;
+  const taskId = parseInt(idParam, 10);
+  
+  const task = tasks.find(t => t.id === taskId);
+  
+  if (!task) {
+    return res.status(404).json({
+      error: `Task ${idParam} not found`
+    });
+  }
+  
+  res.status(200).json(task);
 });
 
 app.listen(PORT, () => {
