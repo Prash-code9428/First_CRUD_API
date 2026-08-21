@@ -75,6 +75,78 @@ app.post('/tasks', (req, res) => {
   res.status(201).json(newTask);
 });
 
+// Update an existing task
+app.put('/tasks/:id', (req, res) => {
+  const idParam = req.params.id;
+  const taskId = parseInt(idParam, 10);
+  
+  const task = tasks.find(t => t.id === taskId);
+  
+  if (!task) {
+    return res.status(404).json({
+      error: `Task ${idParam} not found`
+    });
+  }
+  
+  const { title, done } = req.body;
+  
+  // Validation: body must contain at least one valid field to update
+  if (title === undefined && done === undefined) {
+    return res.status(400).json({
+      error: "At least one field (title or done) must be provided for update"
+    });
+  }
+  
+  // Validation: If title is provided, it must not be empty or whitespace only
+  if (title !== undefined) {
+    if (typeof title !== 'string' || title.trim() === '') {
+      return res.status(400).json({
+        error: "Title must be a non-empty string"
+      });
+    }
+  }
+  
+  // Validation: If done is provided, it must be a boolean
+  if (done !== undefined) {
+    if (typeof done !== 'boolean') {
+      return res.status(400).json({
+        error: "Done status must be a boolean value"
+      });
+    }
+  }
+  
+  // Update fields
+  if (title !== undefined) {
+    task.title = title.trim();
+  }
+  
+  if (done !== undefined) {
+    task.done = done;
+  }
+  
+  res.status(200).json(task);
+});
+
+// Delete a task by ID
+app.delete('/tasks/:id', (req, res) => {
+  const idParam = req.params.id;
+  const taskId = parseInt(idParam, 10);
+  
+  const taskIndex = tasks.findIndex(t => t.id === taskId);
+  
+  if (taskIndex === -1) {
+    return res.status(404).json({
+      error: `Task ${idParam} not found`
+    });
+  }
+  
+  // Remove the task from array
+  tasks.splice(taskIndex, 1);
+  
+  // Return 204 No Content with an empty response body
+  res.status(204).send();
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
