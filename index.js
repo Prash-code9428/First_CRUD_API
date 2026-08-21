@@ -17,7 +17,7 @@ app.use(express.json());
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));
 
 // In-memory array of exactly 3 example tasks
-const tasks = [
+let tasks = [
   { id: 1, title: 'Learn the basics of Express.js', done: true },
   { id: 2, title: 'Build a simple CRUD API', done: false },
   { id: 3, title: 'Deploy the backend to staging', done: false }
@@ -39,9 +39,29 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Get all tasks
+// Get all tasks (with optional filtering and search)
 app.get('/tasks', (req, res) => {
-  res.status(200).json(tasks);
+  const { done, search } = req.query;
+  let filteredTasks = [...tasks];
+  
+  // Validation and filtering of the 'done' parameter
+  if (done !== undefined) {
+    if (done !== 'true' && done !== 'false') {
+      return res.status(400).json({
+        error: "Query parameter 'done' must be either 'true' or 'false'"
+      });
+    }
+    const isDone = done === 'true';
+    filteredTasks = filteredTasks.filter(t => t.done === isDone);
+  }
+  
+  // Searching by title (case-insensitive)
+  if (search !== undefined) {
+    const searchLower = search.toLowerCase();
+    filteredTasks = filteredTasks.filter(t => t.title.toLowerCase().includes(searchLower));
+  }
+  
+  res.status(200).json(filteredTasks);
 });
 
 // Get a task by ID
@@ -155,6 +175,32 @@ app.delete('/tasks/:id', (req, res) => {
   
   // Return 204 No Content with an empty response body
   res.status(204).send();
+});
+
+// Get task statistics
+app.get('/stats', (req, res) => {
+  const total = tasks.length;
+  const done = tasks.filter(t => t.done).length;
+  const open = total - done;
+  
+  res.status(200).json({
+    total,
+    done,
+    open
+  });
+});
+
+// Reset tasks list
+app.post('/reset', (req, res) => {
+  tasks = [
+    { id: 1, title: 'Learn the basics of Express.js', done: true },
+    { id: 2, title: 'Build a simple CRUD API', done: false },
+    { id: 3, title: 'Deploy the backend to staging', done: false }
+  ];
+  
+  res.status(200).json({
+    message: "Tasks list has been reset to default values"
+  });
 });
 
 app.listen(PORT, () => {

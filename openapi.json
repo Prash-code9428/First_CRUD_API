@@ -70,7 +70,28 @@
     "/tasks": {
       "get": {
         "summary": "Get all tasks",
-        "description": "Retrieves the complete list of tasks stored in memory.",
+        "description": "Retrieves the list of tasks stored in memory, with optional filtering and searching.",
+        "parameters": [
+          {
+            "name": "done",
+            "in": "query",
+            "required": false,
+            "description": "Filter tasks by completed status (true/false)",
+            "schema": {
+              "type": "string",
+              "enum": ["true", "false"]
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "description": "Search term to match against task titles (case-insensitive)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "A list of tasks",
@@ -81,6 +102,16 @@
                   "items": {
                     "$ref": "#/components/schemas/Task"
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameter values provided",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -267,6 +298,58 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stats": {
+      "get": {
+        "summary": "Get task statistics",
+        "description": "Calculates and returns statistics on the total, completed, and open tasks in memory.",
+        "responses": {
+          "200": {
+            "description": "Statistics retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": { "type": "integer" },
+                    "done": { "type": "integer" },
+                    "open": { "type": "integer" }
+                  },
+                  "example": {
+                    "total": 3,
+                    "done": 1,
+                    "open": 2
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reset": {
+      "post": {
+        "summary": "Reset task list",
+        "description": "Restores the in-memory task list to the default 3 tasks.",
+        "responses": {
+          "200": {
+            "description": "Tasks reset successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" }
+                  },
+                  "example": {
+                    "message": "Tasks list has been reset to default values"
+                  }
                 }
               }
             }
