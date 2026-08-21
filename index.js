@@ -3,6 +3,9 @@ import express from 'express';
 const app = express();
 const PORT = 3000;
 
+// Enable parsing of JSON request bodies
+app.use(express.json());
+
 // In-memory array of exactly 3 example tasks
 const tasks = [
   { id: 1, title: 'Learn the basics of Express.js', done: true },
@@ -45,6 +48,31 @@ app.get('/tasks/:id', (req, res) => {
   }
   
   res.status(200).json(task);
+});
+
+// Create a new task
+app.post('/tasks', (req, res) => {
+  const { title } = req.body;
+  
+  // Validation: Missing, empty, or whitespace-only title
+  if (!title || typeof title !== 'string' || title.trim() === '') {
+    return res.status(400).json({
+      error: "Title is required and cannot be empty or whitespace only"
+    });
+  }
+  
+  // Generate the next available numeric task ID
+  const nextId = tasks.length > 0 ? Math.max(...tasks.map(t => t.id)) + 1 : 1;
+  
+  const newTask = {
+    id: nextId,
+    title: title.trim(),
+    done: false
+  };
+  
+  tasks.push(newTask);
+  
+  res.status(201).json(newTask);
 });
 
 app.listen(PORT, () => {
