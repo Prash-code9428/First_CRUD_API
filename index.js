@@ -27,13 +27,6 @@ if (rowCount === 0) {
   insert.run(3, 'Deploy the backend to staging', 0);
 }
 
-// In-memory array of exactly 3 example tasks for the remaining Stage 2 endpoints (PUT, DELETE, stats, reset)
-let tasks = [
-  { id: 1, title: 'Learn the basics of Express.js', done: true },
-  { id: 2, title: 'Build a simple CRUD API', done: false },
-  { id: 3, title: 'Deploy the backend to staging', done: false }
-];
-
 // Load OpenAPI spec
 const openapiSpec = JSON.parse(
   fs.readFileSync(new URL('./openapi.json', import.meta.url), 'utf8')
@@ -127,7 +120,7 @@ app.get('/tasks/:id', (req, res) => {
   }
 });
 
-// POST /tasks (Migrated to SQLite for Stage 2)
+// POST /tasks (SQLite)
 app.post('/tasks', (req, res) => {
   const { title } = req.body;
   
@@ -141,8 +134,6 @@ app.post('/tasks', (req, res) => {
   try {
     const trimmedTitle = title.trim();
     const info = db.prepare('INSERT INTO tasks (title, done) VALUES (?, 0)').run(trimmedTitle);
-    
-    // Retrieve the newly created task using lastInsertRowid
     const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(Number(info.lastInsertRowid));
     
     res.status(201).json({
@@ -155,102 +146,121 @@ app.post('/tasks', (req, res) => {
   }
 });
 
-// PUT /tasks/:id (Restored to in-memory array for Stage 2)
+// PUT /tasks/:id (SQLite)
 app.put('/tasks/:id', (req, res) => {
   const idParam = req.params.id;
   const taskId = parseInt(idParam, 10);
   
-  const task = tasks.find(t => t.id === taskId);
-  
-  if (!task) {
-    return res.status(404).json({
-      error: `Task ${idParam} not found`
-    });
-  }
-  
-  const { title, done } = req.body;
-  
-  // Validation: body must contain at least one valid field to update
-  if (title === undefined && done === undefined) {
-    return res.status(400).json({
-      error: "At least one field (title or done) must be provided for update"
-    });
-  }
-  
-  // Validation: If title is provided, it must not be empty or whitespace only
-  if (title !== undefined) {
-    if (typeof title !== 'string' || title.trim() === '') {
-      return res.status(400).json({
-        error: "Title must be a non-empty string"
+  try {
+    const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
+    if (!row) {
+      return res.status(404).json({
+        error: `Task ${idParam} not found`
       });
     }
-  }
-  
-  // Validation: If done is provided, it must be a boolean
-  if (done !== undefined) {
-    if (typeof done !== 'boolean') {
+    
+    const { title, done } = req.body;
+    
+    // Validation: body must contain at least one valid field to update
+    if (title === undefined && done === undefined) {
       return res.status(400).json({
-        error: "Done status must be a boolean value"
+        error: "At least one field (title or done) must be provided for update"
       });
     }
+    
+    // Validation: If title is provided, it must not be empty or whitespace only
+    if (title !== undefined) {
+      if (typeof title !== 'string' || title.trim() === '') {
+        return res.status(400).json({
+          error: "Title must be a non-empty string"
+        });
+      }
+    }
+    
+    // Validation: If done is provided, it must be a boolean
+    if (done !== undefined) {
+      if (typeof done !== 'boolean') {
+        return res.status(400).json({
+          error: "Done status must be a boolean value"
+        });
+      }
+    }
+    
+    const updatedTitle = title !== undefined ? title.trim() : row.title;
+    const updatedDone = done !== undefined ? (done ? 1 : 0) : row.done;
+    
+    db.prepare('UPDATE tasks SET title = ?, done = ? WHERE id = ?').run(updatedTitle, updatedDone, taskId);
+    
+    res.status(200).json({
+      id: taskId,
+      title: updatedTitle,
+      done: updatedDone === 1
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  
-  // Update fields
-  if (title !== undefined) {
-    task.title = title.trim();
-  }
-  
-  if (done !== undefined) {
-    task.done = done;
-  }
-  
-  res.status(200).json(task);
 });
 
-// DELETE /tasks/:id (Restored to in-memory array for Stage 2)
+// DELETE /tasks/:id (SQLite)
 app.delete('/tasks/:id', (req, res) => {
   const idParam = req.params.id;
   const taskId = parseInt(idParam, 10);
   
-  const taskIndex = tasks.findIndex(t => t.id === taskId);
-  
-  if (taskIndex === -1) {
-    return res.status(404).json({
-      error: `Task ${idParam} not found`
-    });
+  try {
+    const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
+    if (!row) {
+      return res.status(404).json({
+        error: `Task ${idParam} not found`
+      });
+    }
+    
+    db.prepare('DELETE FROM tasks WHERE id = ?').run(taskId);
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  
-  // Remove the task from array
-  tasks.splice(taskIndex, 1);
-  
-  // Return 204 No Content with an empty response body
-  res.status(204).send();
 });
 
-// Get task statistics (Restored to in-memory array for Stage 2)
+// Get task statistics (SQLite)
 app.get('/stats', (req, res) => {
-  const total = tasks.length;
-  const done = tasks.filter(t => t.done).length;
-  const open = total - done;
-  
-  res.status(200).json({
-    total,
-    done,
-    open
-  });
+  try {
+    const stats = db.prepare(`
+      SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN done = 1 THEN 1 ELSE 0 END) as done
+      FROM tasks
+    `).get();
+    
+    const total = stats.total || 0;
+    const done = stats.done || 0;
+    const open = total - done;
+    
+    res.status(200).json({
+      total,
+      done,
+      open
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// Reset tasks list (Restored to in-memory array for Stage 2)
+// Reset tasks list (SQLite)
 app.post('/reset', (req, res) => {
-  tasks = [
-    { id: 1, title: 'Learn the basics of Express.js', done: true },
-    { id: 2, title: 'Build a simple CRUD API', done: false },
-    { id: 3, title: 'Deploy the backend to staging', done: false }
-  ];
-  
-  res.status(200).json({
-    message: "Tasks list has been reset to default values"
-  });
+  try {
+    db.prepare('DELETE FROM tasks').run();
+    
+    const insert = db.prepare('INSERT INTO tasks (id, title, done) VALUES (?, ?, ?)');
+    insert.run(1, 'Learn the basics of Express.js', 1);
+    insert.run(2, 'Build a simple CRUD API', 0);
+    insert.run(3, 'Deploy the backend to staging', 0);
+    
+    res.status(200).json({
+      message: "Tasks list has been reset to default values"
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.listen(PORT, () => {
