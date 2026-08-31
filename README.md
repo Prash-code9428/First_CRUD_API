@@ -106,17 +106,37 @@ SELECT * FROM tasks WHERE done = 0;
 
 ---
 
-## 10. DB Browser Screenshot Placeholder
+## 10. DB Browser Screenshots
 
-Below is a placeholder for the DB Browser for SQLite screenshot showing the `tasks` table structure:
+Below are the screenshots from DB Browser for SQLite demonstrating the database structure, schema, and records across the different stages of the database lifecycle:
 
-*Placeholder: DB Browser screenshot showing tasks database schema and records (Not uploaded yet).*
+![DB Browser screenshot 1](docs/db-screenhot1.png)
+*Figure 1: Tasks table schema and default records in DB Browser for SQLite.*
+
+![DB Browser screenshot 2](docs/db-screenhot2.png)
+*Figure 2: Viewing the seeded database tasks table after initial creation.*
+
+![DB Browser screenshot 3](docs/db-screenhot3.png)
+*Figure 3: SQLite table state after initial query tests.*
+
+![DB Browser screenshot 4](docs/db-screenhot4.png)
+*Figure 4: Created task state showing database auto-increment in action.*
+
+![DB Browser screenshot 5](docs/db-screenhot5.png)
+*Figure 5: Persistence check after server restart.*
+
+![DB Browser screenshot 6](docs/db-screenhot6.png)
+*Figure 6: SQLite table records reflecting task updates.*
+
+![DB Browser screenshot 7](docs/db-screenhot7.png)
+*Figure 7: SQLite tasks table state after task deletion.*
 
 ---
 
 ## 11. Project Structure
 
 ```text
+├── docs/                # SQLite database screenshots (db-screenhot1.png to 7)
 ├── node_modules/        # Installed dependencies
 ├── .gitignore           # Ignores node_modules, tasks.db, and SQLite temp files
 ├── index.js             # Express application and SQLite CRUD logic
