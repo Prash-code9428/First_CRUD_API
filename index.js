@@ -1,9 +1,31 @@
 import express from 'express';
 import fs from 'fs';
 import swaggerUi from 'swagger-ui-express';
+import Database from 'better-sqlite3';
 
 const app = express();
 const PORT = 3000;
+
+// Initialize SQLite database
+const db = new Database('tasks.db');
+
+// Create table if it doesn't exist
+db.exec(`
+  CREATE TABLE IF NOT EXISTS tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    done INTEGER DEFAULT 0
+  )
+`);
+
+// Seed initial tasks if table is empty
+const rowCount = db.prepare('SELECT COUNT(*) as count FROM tasks').get().count;
+if (rowCount === 0) {
+  const insert = db.prepare('INSERT INTO tasks (id, title, done) VALUES (?, ?, ?)');
+  insert.run(1, 'Learn the basics of Express.js', 1);
+  insert.run(2, 'Build a simple CRUD API', 0);
+  insert.run(3, 'Deploy the backend to staging', 0);
+}
 
 // Load OpenAPI spec
 const openapiSpec = JSON.parse(
@@ -15,13 +37,6 @@ app.use(express.json());
 
 // Serve Swagger UI
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));
-
-// In-memory array of exactly 3 example tasks
-let tasks = [
-  { id: 1, title: 'Learn the basics of Express.js', done: true },
-  { id: 2, title: 'Build a simple CRUD API', done: false },
-  { id: 3, title: 'Deploy the backend to staging', done: false }
-];
 
 // Metadata endpoint
 app.get('/', (req, res) => {
@@ -42,7 +57,6 @@ app.get('/health', (req, res) => {
 // Get all tasks (with optional filtering and search)
 app.get('/tasks', (req, res) => {
   const { done, search } = req.query;
-  let filteredTasks = [...tasks];
   
   // Validation and filtering of the 'done' parameter
   if (done !== undefined) {
@@ -51,17 +65,37 @@ app.get('/tasks', (req, res) => {
         error: "Query parameter 'done' must be either 'true' or 'false'"
       });
     }
-    const isDone = done === 'true';
-    filteredTasks = filteredTasks.filter(t => t.done === isDone);
   }
-  
-  // Searching by title (case-insensitive)
+
+  let query = 'SELECT * FROM tasks';
+  const params = [];
+  const conditions = [];
+
+  if (done !== undefined) {
+    conditions.push('done = ?');
+    params.push(done === 'true' ? 1 : 0);
+  }
+
   if (search !== undefined) {
-    const searchLower = search.toLowerCase();
-    filteredTasks = filteredTasks.filter(t => t.title.toLowerCase().includes(searchLower));
+    conditions.push('title LIKE ?');
+    params.push(`%${search}%`);
   }
-  
-  res.status(200).json(filteredTasks);
+
+  if (conditions.length > 0) {
+    query += ' WHERE ' + conditions.join(' AND ');
+  }
+
+  try {
+    const rows = db.prepare(query).all(params);
+    const mappedRows = rows.map(r => ({
+      id: r.id,
+      title: r.title,
+      done: r.done === 1
+    }));
+    res.status(200).json(mappedRows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Get a task by ID
@@ -69,15 +103,21 @@ app.get('/tasks/:id', (req, res) => {
   const idParam = req.params.id;
   const taskId = parseInt(idParam, 10);
   
-  const task = tasks.find(t => t.id === taskId);
-  
-  if (!task) {
-    return res.status(404).json({
-      error: `Task ${idParam} not found`
+  try {
+    const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
+    if (!row) {
+      return res.status(404).json({
+        error: `Task ${idParam} not found`
+      });
+    }
+    res.status(200).json({
+      id: row.id,
+      title: row.title,
+      done: row.done === 1
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  
-  res.status(200).json(task);
 });
 
 // Create a new task
@@ -91,18 +131,17 @@ app.post('/tasks', (req, res) => {
     });
   }
   
-  // Generate the next available numeric task ID
-  const nextId = tasks.length > 0 ? Math.max(...tasks.map(t => t.id)) + 1 : 1;
-  
-  const newTask = {
-    id: nextId,
-    title: title.trim(),
-    done: false
-  };
-  
-  tasks.push(newTask);
-  
-  res.status(201).json(newTask);
+  try {
+    const trimmedTitle = title.trim();
+    const info = db.prepare('INSERT INTO tasks (title, done) VALUES (?, 0)').run(trimmedTitle);
+    res.status(201).json({
+      id: Number(info.lastInsertRowid),
+      title: trimmedTitle,
+      done: false
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Update an existing task
@@ -110,51 +149,54 @@ app.put('/tasks/:id', (req, res) => {
   const idParam = req.params.id;
   const taskId = parseInt(idParam, 10);
   
-  const task = tasks.find(t => t.id === taskId);
-  
-  if (!task) {
-    return res.status(404).json({
-      error: `Task ${idParam} not found`
-    });
-  }
-  
-  const { title, done } = req.body;
-  
-  // Validation: body must contain at least one valid field to update
-  if (title === undefined && done === undefined) {
-    return res.status(400).json({
-      error: "At least one field (title or done) must be provided for update"
-    });
-  }
-  
-  // Validation: If title is provided, it must not be empty or whitespace only
-  if (title !== undefined) {
-    if (typeof title !== 'string' || title.trim() === '') {
-      return res.status(400).json({
-        error: "Title must be a non-empty string"
+  try {
+    const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
+    if (!row) {
+      return res.status(404).json({
+        error: `Task ${idParam} not found`
       });
     }
-  }
-  
-  // Validation: If done is provided, it must be a boolean
-  if (done !== undefined) {
-    if (typeof done !== 'boolean') {
+    
+    const { title, done } = req.body;
+    
+    // Validation: body must contain at least one valid field to update
+    if (title === undefined && done === undefined) {
       return res.status(400).json({
-        error: "Done status must be a boolean value"
+        error: "At least one field (title or done) must be provided for update"
       });
     }
+    
+    // Validation: If title is provided, it must not be empty or whitespace only
+    if (title !== undefined) {
+      if (typeof title !== 'string' || title.trim() === '') {
+        return res.status(400).json({
+          error: "Title must be a non-empty string"
+        });
+      }
+    }
+    
+    // Validation: If done is provided, it must be a boolean
+    if (done !== undefined) {
+      if (typeof done !== 'boolean') {
+        return res.status(400).json({
+          error: "Done status must be a boolean value"
+        });
+      }
+    }
+    
+    const updatedTitle = title !== undefined ? title.trim() : row.title;
+    const updatedDone = done !== undefined ? (done ? 1 : 0) : row.done;
+    
+    db.prepare('UPDATE tasks SET title = ?, done = ? WHERE id = ?').run(updatedTitle, updatedDone, taskId);
+    
+    res.status(200).json({
+      id: taskId,
+      title: updatedTitle,
+      done: updatedDone === 1
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  
-  // Update fields
-  if (title !== undefined) {
-    task.title = title.trim();
-  }
-  
-  if (done !== undefined) {
-    task.done = done;
-  }
-  
-  res.status(200).json(task);
 });
 
 // Delete a task by ID
@@ -162,45 +204,63 @@ app.delete('/tasks/:id', (req, res) => {
   const idParam = req.params.id;
   const taskId = parseInt(idParam, 10);
   
-  const taskIndex = tasks.findIndex(t => t.id === taskId);
-  
-  if (taskIndex === -1) {
-    return res.status(404).json({
-      error: `Task ${idParam} not found`
-    });
+  try {
+    const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
+    if (!row) {
+      return res.status(404).json({
+        error: `Task ${idParam} not found`
+      });
+    }
+    
+    db.prepare('DELETE FROM tasks WHERE id = ?').run(taskId);
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  
-  // Remove the task from array
-  tasks.splice(taskIndex, 1);
-  
-  // Return 204 No Content with an empty response body
-  res.status(204).send();
 });
 
 // Get task statistics
 app.get('/stats', (req, res) => {
-  const total = tasks.length;
-  const done = tasks.filter(t => t.done).length;
-  const open = total - done;
-  
-  res.status(200).json({
-    total,
-    done,
-    open
-  });
+  try {
+    const stats = db.prepare(`
+      SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN done = 1 THEN 1 ELSE 0 END) as done
+      FROM tasks
+    `).get();
+    
+    const total = stats.total || 0;
+    const done = stats.done || 0;
+    const open = total - done;
+    
+    res.status(200).json({
+      total,
+      done,
+      open
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Reset tasks list
 app.post('/reset', (req, res) => {
-  tasks = [
-    { id: 1, title: 'Learn the basics of Express.js', done: true },
-    { id: 2, title: 'Build a simple CRUD API', done: false },
-    { id: 3, title: 'Deploy the backend to staging', done: false }
-  ];
-  
-  res.status(200).json({
-    message: "Tasks list has been reset to default values"
-  });
+  try {
+    // Delete all records
+    db.prepare('DELETE FROM tasks').run();
+    
+    // Reseed
+    const insert = db.prepare('INSERT INTO tasks (id, title, done) VALUES (?, ?, ?)');
+    insert.run(1, 'Learn the basics of Express.js', 1);
+    insert.run(2, 'Build a simple CRUD API', 0);
+    insert.run(3, 'Deploy the backend to staging', 0);
+    
+    res.status(200).json({
+      message: "Tasks list has been reset to default values"
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.listen(PORT, () => {
