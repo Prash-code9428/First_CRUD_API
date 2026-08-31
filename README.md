@@ -114,19 +114,19 @@ Below are the screenshots from DB Browser for SQLite demonstrating the database 
 *Figure 1: Tasks table schema and default records in DB Browser for SQLite.*
 
 ![DB Browser screenshot 2](docs/db-screenhot2.png)
-*Figure 2: Viewing the seeded database tasks table after initial creation.*
+*Figure 2: SQL Query 1*
 
 ![DB Browser screenshot 3](docs/db-screenhot3.png)
-*Figure 3: SQLite table state after initial query tests.*
+*Figure 3: SQL Query 2*
 
 ![DB Browser screenshot 4](docs/db-screenhot4.png)
-*Figure 4: Created task state showing database auto-increment in action.*
+*Figure 4: SQL Query 3*
 
 ![DB Browser screenshot 5](docs/db-screenhot5.png)
-*Figure 5: Persistence check after server restart.*
+*Figure 5: SQL Query 3 result*
 
 ![DB Browser screenshot 6](docs/db-screenhot6.png)
-*Figure 6: SQLite table records reflecting task updates.*
+*Figure 6: SQL Query 4*
 
 ![DB Browser screenshot 7](docs/db-screenhot7.png)
 *Figure 7: SQLite tasks table state after task deletion.*
