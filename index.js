@@ -27,7 +27,7 @@ if (rowCount === 0) {
   insert.run(3, 'Deploy the backend to staging', 0);
 }
 
-// In-memory array of exactly 3 example tasks for the remaining Stage 1 endpoints
+// In-memory array of exactly 3 example tasks for the remaining Stage 2 endpoints (PUT, DELETE, stats, reset)
 let tasks = [
   { id: 1, title: 'Learn the basics of Express.js', done: true },
   { id: 2, title: 'Build a simple CRUD API', done: false },
@@ -61,7 +61,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// GET /tasks (Migrated to SQLite)
+// GET /tasks (SQLite)
 app.get('/tasks', (req, res) => {
   const { done, search } = req.query;
   
@@ -105,7 +105,7 @@ app.get('/tasks', (req, res) => {
   }
 });
 
-// GET /tasks/:id (Migrated to SQLite with parameter binding)
+// GET /tasks/:id (SQLite)
 app.get('/tasks/:id', (req, res) => {
   const idParam = req.params.id;
   const taskId = parseInt(idParam, 10);
@@ -127,7 +127,7 @@ app.get('/tasks/:id', (req, res) => {
   }
 });
 
-// POST /tasks (Restored to in-memory array for Stage 1)
+// POST /tasks (Migrated to SQLite for Stage 2)
 app.post('/tasks', (req, res) => {
   const { title } = req.body;
   
@@ -138,21 +138,24 @@ app.post('/tasks', (req, res) => {
     });
   }
   
-  // Generate the next available numeric task ID
-  const nextId = tasks.length > 0 ? Math.max(...tasks.map(t => t.id)) + 1 : 1;
-  
-  const newTask = {
-    id: nextId,
-    title: title.trim(),
-    done: false
-  };
-  
-  tasks.push(newTask);
-  
-  res.status(201).json(newTask);
+  try {
+    const trimmedTitle = title.trim();
+    const info = db.prepare('INSERT INTO tasks (title, done) VALUES (?, 0)').run(trimmedTitle);
+    
+    // Retrieve the newly created task using lastInsertRowid
+    const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(Number(info.lastInsertRowid));
+    
+    res.status(201).json({
+      id: row.id,
+      title: row.title,
+      done: row.done === 1
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// PUT /tasks/:id (Restored to in-memory array for Stage 1)
+// PUT /tasks/:id (Restored to in-memory array for Stage 2)
 app.put('/tasks/:id', (req, res) => {
   const idParam = req.params.id;
   const taskId = parseInt(idParam, 10);
@@ -204,7 +207,7 @@ app.put('/tasks/:id', (req, res) => {
   res.status(200).json(task);
 });
 
-// DELETE /tasks/:id (Restored to in-memory array for Stage 1)
+// DELETE /tasks/:id (Restored to in-memory array for Stage 2)
 app.delete('/tasks/:id', (req, res) => {
   const idParam = req.params.id;
   const taskId = parseInt(idParam, 10);
@@ -224,7 +227,7 @@ app.delete('/tasks/:id', (req, res) => {
   res.status(204).send();
 });
 
-// Get task statistics (Restored to in-memory array for Stage 1)
+// Get task statistics (Restored to in-memory array for Stage 2)
 app.get('/stats', (req, res) => {
   const total = tasks.length;
   const done = tasks.filter(t => t.done).length;
@@ -237,7 +240,7 @@ app.get('/stats', (req, res) => {
   });
 });
 
-// Reset tasks list (Restored to in-memory array for Stage 1)
+// Reset tasks list (Restored to in-memory array for Stage 2)
 app.post('/reset', (req, res) => {
   tasks = [
     { id: 1, title: 'Learn the basics of Express.js', done: true },
