@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Task API",
-    "description": "A simple in-memory CRUD Task API with Express",
+    "description": "A simple CRUD Task API with Express and SQLite",
     "version": "1.0.0"
   },
   "servers": [
@@ -70,7 +70,7 @@
     "/tasks": {
       "get": {
         "summary": "Get all tasks",
-        "description": "Retrieves the list of tasks stored in memory, with optional filtering and searching.",
+        "description": "Retrieves the list of tasks stored in SQLite database, with optional filtering and searching.",
         "parameters": [
           {
             "name": "done",
@@ -120,7 +120,7 @@
       },
       "post": {
         "summary": "Create a new task",
-        "description": "Creates a new task and appends it to the in-memory tasks list.",
+        "description": "Creates a new task and appends it to the SQLite database.",
         "requestBody": {
           "required": true,
           "content": {
@@ -308,7 +308,7 @@
     "/stats": {
       "get": {
         "summary": "Get task statistics",
-        "description": "Calculates and returns statistics on the total, completed, and open tasks in memory.",
+        "description": "Calculates and returns statistics on the total, completed, and open tasks in the database.",
         "responses": {
           "200": {
             "description": "Statistics retrieved successfully",
@@ -336,7 +336,7 @@
     "/reset": {
       "post": {
         "summary": "Reset task list",
-        "description": "Restores the in-memory task list to the default 3 tasks.",
+        "description": "Restores the SQLite tasks table to the default 3 tasks.",
         "responses": {
           "200": {
             "description": "Tasks reset successfully",

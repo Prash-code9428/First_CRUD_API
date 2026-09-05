@@ -111,25 +111,25 @@ SELECT * FROM tasks WHERE done = 0;
 Below are the screenshots from DB Browser for SQLite demonstrating the database structure, schema, and records across the different stages of the database lifecycle:
 
 ![DB Browser screenshot 1](docs/db-screenhot1.png)
-*Figure 1: Tasks table schema and default records in DB Browser for SQLite.*
+*Figure 1: Tasks table schema, columns, and default records (`SELECT * FROM tasks;`).*
 
 ![DB Browser screenshot 2](docs/db-screenhot2.png)
-*Figure 2: SQL Query 1*
+*Figure 2: Query filtered by completion status (`SELECT * FROM tasks WHERE done = 1;`).*
 
 ![DB Browser screenshot 3](docs/db-screenhot3.png)
-*Figure 3: SQL Query 2*
+*Figure 3: Aggregation query for total task count (`SELECT COUNT(*) FROM tasks;`).*
 
 ![DB Browser screenshot 4](docs/db-screenhot4.png)
-*Figure 4: SQL Query 3*
+*Figure 4: Bulk update query execution (`UPDATE tasks SET done = 1;`).*
 
 ![DB Browser screenshot 5](docs/db-screenhot5.png)
-*Figure 5: SQL Query 3 result*
+*Figure 5: Verification of updated records (`SELECT * FROM tasks;`).*
 
 ![DB Browser screenshot 6](docs/db-screenhot6.png)
-*Figure 6: SQL Query 4*
+*Figure 6: Delete query execution (`DELETE FROM tasks WHERE done = 1;`).*
 
 ![DB Browser screenshot 7](docs/db-screenhot7.png)
-*Figure 7: SQLite tasks table state after task deletion.*
+*Figure 7: Verification of tasks table state after record deletion (`SELECT * FROM tasks;`).*
 
 ---
 
